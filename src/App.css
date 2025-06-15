@@ -2,7 +2,8 @@
   /* text-align: center; */ /* 全体の中央揃えはレイアウトに応じて調整 */
   display: flex;
   flex-direction: column;
-  min-height: 100vh; /* 画面全体の高さを確保 */
+  /* height: 100vh; */ /* ウェブサイト全体の高さ固定を解除 */
+  /* overflow: hidden; */ /* ウェブサイト全体のスクロール制限を解除 */
 }
 
 .main-content {
@@ -20,9 +21,11 @@
 }
 
 .right-section {
+  display: flex; /* Make it a flex container */
+  flex-direction: column; /* Stack children vertically */
   flex: 1; /* 例: 左セクションに対して1倍の幅を持つ。比率は調整してください。 */
   /* padding: 10px; */ /* 必要に応じてパディング */
-  overflow-y: auto; /* B_Containerの内容が多い場合にスクロール可能にする */
+  /* overflow-y: auto; */ /* B_Containerがスクロールするため、引き続き削除 */
   border-left: 1px solid #ddd; /* 左セクションとの区切り線として */
 }
 
