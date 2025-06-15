@@ -1,5 +1,29 @@
 .App {
-  text-align: center;
+  /* text-align: center; */ /* 全体の中央揃えはレイアウトに応じて調整 */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* 画面全体の高さを確保 */
+}
+
+.main-content {
+  display: flex; /* 子要素（left-section と right-section）を横並びにする */
+  flex-grow: 1; /* Appコンテナ内で利用可能な残りのスペースを埋める */
+  /* padding: 10px; */ /* 必要に応じて全体のパディング */
+}
+
+.left-section {
+  display: flex;
+  flex-direction: column; /* PlotAreaとControlPanelを縦に並べる */
+  flex: 2; /* 例: 右セクションに対して2倍の幅を持つ。比率は調整してください。 */
+  /* border-right: 1px solid #ccc; */ /* 右セクションとの区切り線が必要な場合 */
+  /* padding: 10px; */ /* 必要に応じてパディング */
+}
+
+.right-section {
+  flex: 1; /* 例: 左セクションに対して1倍の幅を持つ。比率は調整してください。 */
+  /* padding: 10px; */ /* 必要に応じてパディング */
+  overflow-y: auto; /* B_Containerの内容が多い場合にスクロール可能にする */
+  border-left: 1px solid #ddd; /* 左セクションとの区切り線として */
 }
 
 .App-logo {
