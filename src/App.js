@@ -12,6 +12,8 @@ function App() {
   const [left, setLeft] = useState(0); // leftをstateで管理
   const [right, setRight] = useState(1); // rightをstateで管理
   const [pointsData, setPointsData] = useState([]); // N個の点の時系列データを管理
+  const [parsedFunction, setParsedFunction] = useState(null); // パースされた関数を保持
+
 
   const handleAddPlot = () => {
     setPlotCount(prevCount => prevCount + 1);
@@ -42,7 +44,11 @@ function App() {
     // 条件3: B_i_Plotの数をゼロに戻す
     setPlotCount(0); // plotCountを0にリセットし、時刻0のデータは表示準備完了状態とする
 
-  }, [N_points,left,right]);
+  }, [N_points,left,right,parsedFunction]);
+
+  useEffect(() => {
+    
+  },[])
 
   // plotCountが変更されたとき（新しい反復が追加されたとき）に、
   // 各点の新しい位置情報を生成して追加する
@@ -59,14 +65,21 @@ function App() {
 
       return prevPointsData.map(point => ({
         ...point,
+        // 新しい時刻の位置。時刻は現在のplotCountの値とする
+        // 最後の位置を取得し、それに関数を適用する（より現実的なシミュレーションのため）
         positions: [
           ...point.positions,
-          // 新しい時刻の位置。時刻は現在のplotCountの値とする
-          { time: plotCount, x: Math.random() * (right - left) + left } // 仮の位置データ (ランダム)
+          {
+            time: plotCount,
+            x: parsedFunction
+              ? parsedFunction(point.positions[point.positions.length - 1]?.x) // math.jsでコンパイルされた関数を呼び出す
+              : Math.random() * (right - left) + left // パースされた関数がなければランダム
+          }
         ]
       }));
     });
-  }, [plotCount]); // left, rightも依存配列に追加（位置計算に使うため）
+  }, [plotCount, left, right, parsedFunction]); // parsedFunction も依存配列に追加
+
 
   return (
     <div className="App">
@@ -83,6 +96,7 @@ function App() {
             setLeft={setLeft}
             right={right}
             setRight={setRight}
+            onFunctionParsed={setParsedFunction} // パースされた関数をAppに渡す
           />
         </div>
         {/* 右側のセクション：B_Container */}
