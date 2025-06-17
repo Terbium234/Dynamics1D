@@ -1,5 +1,5 @@
 // client/src/components/PlotArea.js
-import React, { useEffect, useState, useMemo } from 'react'; // useMemo をインポート
+import React, { useEffect, useState, useMemo, useRef } from 'react'; // useMemo, useRef をインポート
 import { format } from 'mathjs'; // math.jsのformat関数をインポート
 import { Line } from 'react-chartjs-2';
 import * as d3 from 'd3'; // ← ここでD3.jsライブラリ全体を 'd3' という名前でインポートしています
@@ -39,6 +39,13 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
   const [scatterPlotData, setScatterPlotData] = useState(null);
   // カラーパレット
   const [colorPalette, setColorPalette] = useState([]);
+
+  // 範囲選択のための状態変数
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectionRectPixels, setSelectionRectPixels] = useState({ x1: null, y1: null, x2: null, y2: null }); // 選択範囲のピクセル座標
+  const [selectedScatterPointIndices, setSelectedScatterPointIndices] = useState(new Set()); // 選択された点のインデックス
+
+  const chartRef = useRef(null); // Chartインスタンスへの参照
 
   // カラーパレットの計算
   useEffect(() => {
@@ -155,12 +162,17 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
         y: scatterY,
       }));
       const scatterColors = initialPointsForDisplay.map(point => point.color);
+      // 選択状態に基づいて色を更新
+      const finalScatterColors = initialPointsForDisplay.map((point, index) => {
+        return selectedScatterPointIndices.has(index) ? 'red' : point.color;
+      });
+
 
       setScatterPlotData({ // 散布図データ専用のstateを更新
         type: 'scatter',
         label: 'Initial Points',
         data: scatterData,
-        backgroundColor: scatterColors, // 計算したデュオトーン色を適用
+        backgroundColor: finalScatterColors, // 選択状態を反映した色を適用
         pointRadius: 3, // 少し大きくして透明度の効果を見やすくする (お好みで調整)
         pointHoverRadius: 4.5,
         pointBorderWidth: 0, // 点の輪郭を消す
@@ -169,7 +181,7 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
     } else {
       setScatterPlotData(null); // 条件に合わない場合はクリア
     }
-  }, [initialPointsForDisplay, fxData]); // 依存配列を整理
+  }, [initialPointsForDisplay, fxData, selectedScatterPointIndices]); // selectedScatterPointIndices を依存配列に追加
 
   // Chart.jsに渡す最終的なデータ (f(x)と散布図をマージ)
   const chartDataForRender = useMemo(() => {
@@ -200,6 +212,164 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
     };
   }, [fxData, scatterPlotData]);
 
+  // 選択範囲描画用のChart.jsプラグイン
+  const selectionPlugin = useMemo(() => ({
+    id: 'rangeSelectionDrawer',
+    afterDraw: (chart, args, options) => {
+      if (options.isSelecting && options.selectionRectPixels) {
+        const { x1, y1, x2, y2 } = options.selectionRectPixels;
+        if (x1 !== null && y1 !== null && x2 !== null && y2 !== null) {
+          const { ctx } = chart;
+          const chartArea = chart.chartArea;
+          if (!chartArea) return;
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(0, 100, 255, 0.3)'; // 半透明の青色
+
+          const selX1 = Math.min(x1, x2);
+          const selWidth = Math.abs(x2 - x1);
+
+          if (selWidth > 0) {
+            ctx.fillRect(
+              selX1,
+              chartArea.top,
+              selWidth,
+              chartArea.height
+            );
+          }
+          ctx.restore();
+        }
+      }
+    }
+  }), []);
+
+  const handleMouseDown = (event) => {
+    const chart = chartRef.current;
+    if (!chart) return;
+
+    // 以前の選択をクリア
+    setSelectedScatterPointIndices(new Set());
+
+    const canvas = chart.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // chartArea の存在を確認
+    const chartArea = chart.chartArea;
+    if (!chartArea) {
+      // チャートエリアがまだ定義されていない場合は、選択状態を解除して何もしない
+      if (isSelecting) setIsSelecting(false);
+      return;
+    }
+
+    if (x < chartArea.left || x > chartArea.right || y < chartArea.top || y > chartArea.bottom) {
+      // チャートエリア外のクリックは無視
+      if (isSelecting) setIsSelecting(false); // 選択中だった場合は解除
+      return;
+    }
+    setIsSelecting(true);
+    setSelectionRectPixels({ x1: x, y1: y, x2: x, y2: y });
+  };
+
+  const handleMouseMove = (event) => {
+    // isSelecting が false の場合、または chartRef.current が null の場合は早期リターン
+    if (!isSelecting || !chartRef.current) {
+        return;
+    }
+    
+    const chart = chartRef.current;
+    const canvas = chart.canvas;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    setSelectionRectPixels(prev => ({ ...prev, x2: x, y2: y }));
+    // chart が存在する場合のみ update を呼び出す
+    if (chart) { 
+      chart.update('none'); // アニメーションなしでチャートを更新し、プラグインのafterDrawをトリガー
+    }
+  };
+
+  const handleMouseUpOrLeave = (event) => {
+    if (!isSelecting) { // 選択中でなければ何もしない
+      return;
+    }
+
+    // この時点で isSelecting は true
+    setIsSelecting(false); // まず選択状態を解除
+
+    const chart = chartRef.current;
+    if (!chart) { // チャートインスタンスがなければ、矩形情報のみリセットして終了
+      setSelectionRectPixels({ x1: null, y1: null, x2: null, y2: null });
+      return;
+    }
+
+    const { x1: pixelX1, x2: pixelX2 } = selectionRectPixels;
+
+    // scales.x と getValueForPixel メソッドの存在を確認
+    if (!chart.scales || !chart.scales.x || typeof chart.scales.x.getValueForPixel !== 'function') {
+        // 必要なスケール情報がない場合は、矩形情報をリセットし、チャートを更新して選択矩形を消す
+        setSelectionRectPixels({ x1: null, y1: null, x2: null, y2: null });
+        chart.update('none');
+        return;
+    }
+
+    // ピクセル座標をデータ座標に変換
+    const selectionStartX = chart.scales.x.getValueForPixel(Math.min(pixelX1, pixelX2));
+    const selectionEndX = chart.scales.x.getValueForPixel(Math.max(pixelX1, pixelX2)); 
+    const newSelectedIndices = new Set();
+    if (initialPointsForDisplay && initialPointsForDisplay.length > 0) {
+      initialPointsForDisplay.forEach((point, index) => {
+        if (point.x >= selectionStartX && point.x <= selectionEndX) {
+          newSelectedIndices.add(index);
+        }
+      });
+    }
+    setSelectedScatterPointIndices(newSelectedIndices);
+    setSelectionRectPixels({ x1: null, y1: null, x2: null, y2: null }); // 選択矩形情報をリセット
+    // チャートを更新して矩形を消し、点の色の変更を反映
+    chart.update('none');
+  };
+
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: true,
+    animation: false,
+    scales: {
+      x: {
+        type: 'linear',
+        grid: {
+          color: 'rgba(0, 0, 0, 0.1)',
+        },
+        ticks: {
+          color: '#666',
+        }
+      },
+      y: {
+        beginAtZero: false,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.1)',
+        },
+        ticks: {
+          color: '#666',
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        display: true
+      },
+      tooltip: {
+        enabled: true
+      },
+      rangeSelectionDrawer: { // カスタムプラグインへのオプション渡し
+        isSelecting,
+        selectionRectPixels
+      }
+    }
+  }), [isSelecting, selectionRectPixels]);
+
   if (!chartDataForRender) {
     return (
       <main style={{ padding: '10px', flexGrow: 1, border: '1px solid #ddd', margin: '10px' }}>
@@ -209,55 +379,29 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
     );
   }
 
+
   return (
     <main style={{ padding: '10px', flexGrow: 1, border: '1px solid #ddd', margin: '10px' }}>
       <h2>プロットエリア</h2>
       {chartDataForRender && ( // chartData を chartDataForRender に変更
-        <div style={{ minHeight: '300px', maxHeight: '400px', maxWidth: '700px', margin: '0 auto 10px auto', flexShrink: 0, position: 'relative' }}> {/* 幅を制限し中央寄せ */}
-          {/* グラフのコンテナの幅も高さに合わせて調整するか、アスペクト比をChart.js側で設定 */}
-        {/* <div style={{ width: '300px', height: '300px', marginBottom: '20px' }}> */}
+        <div 
+          style={{ minHeight: '300px', maxHeight: '400px', maxWidth: '700px', margin: '0 auto 10px auto', flexShrink: 0, position: 'relative', userSelect: 'none' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUpOrLeave}
+          onMouseLeave={handleMouseUpOrLeave} // マウスが要素外に出た場合も選択終了として扱う
+        >
           <Line
+            ref={chartRef}
             data={chartDataForRender} // ここを修正
-            options={{
-              responsive: true,
-              maintainAspectRatio: true, // 縦横比を維持しようとします
-              animation: false, // ★ パフォーマンス改善のためアニメーションを無効化
-              // aspectRatio: 1, // Chart.js v3.7+ で利用可能。1で正方形に近くなる。
-              scales: {
-                x: {
-                  type: 'linear', // X軸を線形スケールに変更
-                  grid: {
-                    color: 'rgba(0, 0, 0, 0.1)', // 通常のグリッド線の色
-                  },
-                  // labelsは不要になる (type: 'linear' のため)
-                  ticks: {
-                    color: '#666', // 通常の目盛りの色
-                  }
-                },
-                y: {
-                  beginAtZero: false,
-                  grid: {
-                    color: 'rgba(0, 0, 0, 0.1)', // 通常のグリッド線の色
-                  },
-                  ticks: {
-                    color: '#666', // 通常の目盛りの色
-                  }
-                }
-              },
-              plugins: {
-                legend: {
-                  display: true
-                },
-                tooltip: {
-                  enabled: true
-                }
-              }
-            }} />
+            options={chartOptions}
+            plugins={[selectionPlugin]} // 作成したプラグインを登録
+          />
         </div>
       )}
       {/* 以前の initialPointsForDisplay を表示していた div は削除 */}
     </main>
-  );
+  ); 
 }
 
 export default PlotArea;
