@@ -87,7 +87,12 @@ function App() {
       <div className="main-content">
         {/* 左側のセクション：PlotAreaとControlPanelを縦に並べる */}
         <div className="left-section">
-          <PlotArea pointsData={pointsData} />
+          <PlotArea
+            pointsData={pointsData}
+            parsedFunction={parsedFunction}
+            left={left}
+            right={right}
+          />
           <ControlPanel
             onAddPlot={handleAddPlot}
             N_points={N_points}

@@ -1,5 +1,5 @@
 // client/src/components/ControlPanel.js
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { safeFunctionParser } from '../utils/functionUtils'; // 作成したパーサーをインポート
 
 function ControlPanel({
@@ -13,19 +13,55 @@ function ControlPanel({
   onFunctionParsed // App.jsから渡されるコールバック
 }) {
 
-  const [functionString, setFunctionString] = useState("x * 0.5 * (1 - x)"); // 関数の初期値を数式の例として設定
+  // 各入力要素への参照を作成
+  const functionInputRef = useRef(null);
+  const nPointsInputRef = useRef(null);
+  const leftInputRef = useRef(null);
+  const rightInputRef = useRef(null);
+
   const [parseError, setParseError] = useState(null); // パースエラーメッセージ用
 
-  // ロジックを一旦削除
-  const handleSimulate = () => {
+  // App.jsからのpropsが変更されたら入力フィールドの値を更新
+  useEffect(() => {
+    if (functionInputRef.current) functionInputRef.current.value = "x * 0.5 * (1 - x)"; // 初期関数文字列
+  }, []); // マウント時に一度だけ設定
+  useEffect(() => {
+    if (nPointsInputRef.current) nPointsInputRef.current.value = String(N_points);
+  }, [N_points]);
+  useEffect(() => {
+    if (leftInputRef.current) leftInputRef.current.value = String(left);
+  }, [left]);
+  useEffect(() => {
+    if (rightInputRef.current) rightInputRef.current.value = String(right);
+  }, [right]);
+
+  const handleApplyChanges = () => {
     setParseError(null); // エラーメッセージをリセット
-    const parsedFunc = safeFunctionParser(functionString);
+
+    // N_points, left, right の値をrefから取得して更新
+    const nPointsValue = parseInt(nPointsInputRef.current.value, 10);
+    if (!isNaN(nPointsValue) && nPointsValue >= 0) {
+      setN_points(nPointsValue);
+    } else {
+      setParseError(prev => prev ? `${prev}\nN_pointsが無効です。` : 'N_pointsが無効です。');
+    }
+
+    const leftValue = parseFloat(leftInputRef.current.value);
+    if (!isNaN(leftValue)) setLeft(leftValue);
+    else setParseError(prev => prev ? `${prev}\nLeftが無効です。` : 'Leftが無効です。');
+
+    const rightValue = parseFloat(rightInputRef.current.value);
+    if (!isNaN(rightValue)) setRight(rightValue);
+    else setParseError(prev => prev ? `${prev}\nRightが無効です。` : 'Rightが無効です。');
+
+    // 関数のパースと適用
+    const parsedFunc = safeFunctionParser(functionInputRef.current.value);
     if (parsedFunc) {
       console.log("関数パース成功:", parsedFunc);
       onFunctionParsed(() => parsedFunc); // App.jsに関数オブジェクトを渡す (関数として渡すことで再生成を防ぐ)
     } else {
       console.error("関数パース失敗");
-      setParseError("数式の形式が正しくありません。例: x * 0.5 * (1 - x) や sin(x)");
+      setParseError(prev => prev ? `${prev}\n数式の形式が正しくありません。` : "数式の形式が正しくありません。例: x * 0.5 * (1 - x) や sin(x)");
       onFunctionParsed(null); // パース失敗をApp.jsに伝える
     }
   };
@@ -34,15 +70,15 @@ function ControlPanel({
     <aside style={{ padding: '10px', backgroundColor: '#e9e9e9', borderTop: '1px solid #ccc' /* PlotAreaとの区切り */ }}>
       <h2>コントロールパネル</h2>
       <div style={{ marginBottom: '10px' }}>
-        <button onClick={handleSimulate} style={{ marginLeft: '10px' }}>関数を適用</button>
-        <button onClick={onAddPlot}>次の反復を表示</button>
+        <button onClick={handleApplyChanges} style={{ marginRight: '10px' }}>変更を適用</button>
+        <button onClick={onAddPlot} >次の反復を表示</button>
       </div>
       <div style={{ marginBottom: '10px' }}>
         <label htmlFor="function_input" style={{ display: 'block', marginBottom: '5px' }}>{'数式 F(x): (例: x * 0.5 * (1 - x) または sin(x) )'}</label>
         <textarea
           id="function_input"
-          value={functionString}
-          onChange={(e) => setFunctionString(e.target.value)}
+          ref={functionInputRef}
+          defaultValue={"x * 0.5 * (1 - x)"} // 初期値をdefaultValueで設定
           rows={3}
           style={{ width: '95%', fontFamily: 'monospace', fontSize: '14px', padding: '5px' }}
         />
@@ -53,8 +89,8 @@ function ControlPanel({
         <input
           type="number"
           id="n_points_input"
-          value={N_points}
-          onChange={(e) => setN_points(parseInt(e.target.value, 10))}
+          ref={nPointsInputRef}
+          defaultValue={String(N_points)} // 初期値をdefaultValueで設定
           style={{ width: '80px' }}
         />
       </div>
@@ -63,16 +99,16 @@ function ControlPanel({
         <input
           type="number"
           id="left_input"
-          value={left}
-          onChange={(e) => setLeft(parseFloat(e.target.value))}
+          ref={leftInputRef}
+          defaultValue={String(left)} // 初期値をdefaultValueで設定
           style={{ width: '80px', marginRight: '10px' }}
         />
         <label htmlFor="right_input" style={{ marginRight: '5px' }}>Right:</label>
         <input
           type="number"
           id="right_input"
-          value={right}
-          onChange={(e) => setRight(parseFloat(e.target.value))}
+          ref={rightInputRef}
+          defaultValue={String(right)} // 初期値をdefaultValueで設定
           style={{ width: '80px' }}
         />
       </div>
