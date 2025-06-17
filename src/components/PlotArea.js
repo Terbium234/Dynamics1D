@@ -26,14 +26,13 @@ ChartJS.register(
   Legend
 );
 
-function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_pointsも受け取る
+function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_points }) { // N_pointsも受け取る, setPointsData を追加
   // 表示する点のインデックス (0, 1, 2)
   const pointIndicesToShow = [0, 1, 2];
   const pointsToDisplay = pointsData.filter((_, index) => pointIndicesToShow.includes(index));
   const SCATTER_PLOT_Y_OFFSET = 0.1; // f(x)の最小値からのオフセット量の基準
   const MIN_SCATTER_Y_OFFSET_VALUE = 0.2; // 散布図のYオフセットの最小絶対値
 
-  // Stateの定義
   const [fxData, setFxData] = useState(null);
   // 散布図のプロットデータ
   const [scatterPlotData, setScatterPlotData] = useState(null);
@@ -43,7 +42,6 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
   // 範囲選択のための状態変数
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRectPixels, setSelectionRectPixels] = useState({ x1: null, y1: null, x2: null, y2: null }); // 選択範囲のピクセル座標
-  const [selectedScatterPointIndices, setSelectedScatterPointIndices] = useState(new Set()); // 選択された点のインデックス
 
   const chartRef = useRef(null); // Chartインスタンスへの参照
 
@@ -128,20 +126,23 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
         if (point.positions && point.positions.length > 0 && point.positions[0]?.time === 0) {
           const xPos = point.positions[0].x;
           let color;
-
-          if (range === 0) {
-            // 範囲がゼロの場合は中間色を使用
-            color = interpolator(0.5);
-            // d3.colorを使って透明度を設定
-            if (d3.color(color)) color = d3.color(color).copy({opacity: 0.7}).toString();
+          // point.dragged が true なら赤、そうでなければグラデーション
+          if (point.dragged) {
+            color = 'red';
           } else {
-            // x座標を [0, 1] の範囲に正規化
-            const relativePos = Math.max(0, Math.min(1, (xPos - left) / range));
-            // 正規化された値を使って補間関数から色を取得し、透明度を設定
-            color = interpolator(relativePos);
-            if (d3.color(color)) color = d3.color(color).copy({opacity: 0.7}).toString();
+            if (range === 0) {
+              // 範囲がゼロの場合は中間色を使用
+              color = interpolator(0.5);
+              if (d3.color(color)) color = d3.color(color).copy({opacity: 0.7}).toString();
+            } else {
+              // x座標を [0, 1] の範囲に正規化
+              const relativePos = Math.max(0, Math.min(1, (xPos - left) / range));
+              // 正規化された値を使って補間関数から色を取得し、透明度を設定
+              color = interpolator(relativePos);
+              if (d3.color(color)) color = d3.color(color).copy({opacity: 0.7}).toString();
+            }
           }
-          result.push({ id: point.id, x: xPos, color: color });
+          result.push({ id: point.id, x: xPos, color: color }); // `dragged` プロパティは `pointsData` から直接参照される
         }
       });
     }
@@ -162,17 +163,12 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
         y: scatterY,
       }));
       const scatterColors = initialPointsForDisplay.map(point => point.color);
-      // 選択状態に基づいて色を更新
-      const finalScatterColors = initialPointsForDisplay.map((point, index) => {
-        return selectedScatterPointIndices.has(index) ? 'red' : point.color;
-      });
-
 
       setScatterPlotData({ // 散布図データ専用のstateを更新
         type: 'scatter',
         label: 'Initial Points',
         data: scatterData,
-        backgroundColor: finalScatterColors, // 選択状態を反映した色を適用
+        backgroundColor: scatterColors, // initialPointsForDisplay から取得した色を適用
         pointRadius: 3, // 少し大きくして透明度の効果を見やすくする (お好みで調整)
         pointHoverRadius: 4.5,
         pointBorderWidth: 0, // 点の輪郭を消す
@@ -181,7 +177,7 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
     } else {
       setScatterPlotData(null); // 条件に合わない場合はクリア
     }
-  }, [initialPointsForDisplay, fxData, selectedScatterPointIndices]); // selectedScatterPointIndices を依存配列に追加
+  }, [initialPointsForDisplay, fxData]); // selectedScatterPointIndices を依存配列から削除
 
   // Chart.jsに渡す最終的なデータ (f(x)と散布図をマージ)
   const chartDataForRender = useMemo(() => {
@@ -246,9 +242,6 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
   const handleMouseDown = (event) => {
     const chart = chartRef.current;
     if (!chart) return;
-
-    // 以前の選択をクリア
-    setSelectedScatterPointIndices(new Set());
 
     const canvas = chart.canvas;
     const rect = canvas.getBoundingClientRect();
@@ -318,20 +311,35 @@ function PlotArea({ pointsData, parsedFunction, left, right, N_points }) { // N_
     // ピクセル座標をデータ座標に変換
     const selectionStartX = chart.scales.x.getValueForPixel(Math.min(pixelX1, pixelX2));
     const selectionEndX = chart.scales.x.getValueForPixel(Math.max(pixelX1, pixelX2)); 
-    const newSelectedIndices = new Set();
-    if (initialPointsForDisplay && initialPointsForDisplay.length > 0) {
-      initialPointsForDisplay.forEach((point, index) => {
+
+    if (setPointsData && initialPointsForDisplay && initialPointsForDisplay.length > 0) {
+      const idsInInitialDisplay = new Set(initialPointsForDisplay.map(p => p.id));
+      const selectedIdsInInitialDisplay = new Set();
+
+      initialPointsForDisplay.forEach(point => {
         if (point.x >= selectionStartX && point.x <= selectionEndX) {
-          newSelectedIndices.add(index);
+          selectedIdsInInitialDisplay.add(point.id);
         }
       });
+
+      const updatedPointsData = pointsData.map(pData => {
+        // この点が initialPointsForDisplay に含まれるか (つまり time === 0 の点か)
+        if (idsInInitialDisplay.has(pData.id)) {
+          // 含まれる場合、選択されたかどうかで dragged を更新
+          // (dragged プロパティが存在しない場合も考慮してデフォルト値をfalseに)
+          return { ...pData, dragged: selectedIdsInInitialDisplay.has(pData.id) };
+        }
+        // initialPointsForDisplay に含まれない点は dragged プロパティを変更しない
+        // (dragged プロパティが存在しない場合は false のままか、現状維持)
+        return { ...pData, dragged: pData.dragged || false };
+      });
+      setPointsData(updatedPointsData);
     }
-    setSelectedScatterPointIndices(newSelectedIndices);
+
     setSelectionRectPixels({ x1: null, y1: null, x2: null, y2: null }); // 選択矩形情報をリセット
     // チャートを更新して矩形を消し、点の色の変更を反映
     chart.update('none');
   };
-
   const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: true,

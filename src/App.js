@@ -37,6 +37,7 @@ function App() {
       return {
         id: `point-${i}`,
         positions: [{ time: 0, x: initialX }], // 時刻0の初期位置を登録
+        dragged: false, // 初期状態ではドラッグされていない
       };
     });
     setPointsData(initialPoints); // 再計算された初期位置で点のデータを更新
@@ -89,6 +90,7 @@ function App() {
         <div className="left-section">
           <PlotArea
             pointsData={pointsData}
+            setPointsData={setPointsData}
             parsedFunction={parsedFunction}
             left={left}
             right={right}
