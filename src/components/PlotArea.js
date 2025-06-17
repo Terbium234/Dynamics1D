@@ -1,5 +1,6 @@
 // client/src/components/PlotArea.js
 import React from 'react';
+import { format } from 'mathjs'; // math.jsのformat関数をインポート
 
 function PlotArea({ pointsData }) {
   // 表示する点のインデックス (0, 1, 2)
@@ -19,7 +20,13 @@ function PlotArea({ pointsData }) {
                 <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px' }}>
                   {point.positions.map(pos => (
                     <li key={`${point.id}-time-${pos.time}`}>
-                      時刻 {pos.time}: 位置 {pos.x.toFixed(4)}
+                      時刻 {pos.time}: 位置{' '}
+                      {typeof pos.x === 'number' && isFinite(pos.x)
+                        ? pos.x.toFixed(4)
+                        : typeof pos.x?.toString === 'function' 
+                          ? format(pos.x, { precision: 4, notation: 'fixed' }) // math.jsの型かもしれないのでformatを試す
+                          : String(pos.x) // その他の場合は文字列として表示
+                      }
                     </li>
                   ))}
                 </ul>
