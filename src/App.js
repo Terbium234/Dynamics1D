@@ -5,7 +5,24 @@ import * as d3 from 'd3'; // d3をインポート
 import ControlPanel from './components/ControlPanel';
 import PlotArea from './components/PlotArea';
 import './App.css'; // 必要に応じてグローバルCSSをインポート
+import {
+  Chart,
+  ScatterController,
+  PointElement,
+  LinearScale,
+  Tooltip,
+  Legend
+} from 'chart.js';
 import BContainer from './components/BContainer'; // ファイル名とコンポーネント名を BContainer に変更
+
+// Chart.js で散布図および関連要素を使用するために必要なコンポーネントを登録します。
+Chart.register(
+  ScatterController,
+  PointElement,
+  LinearScale,
+  Tooltip,
+  Legend
+);
 
 function App() {
   const [plotCount, setPlotCount] = useState(0); // 表示するB_i_Plotの数を管理
