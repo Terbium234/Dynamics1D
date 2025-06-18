@@ -53,7 +53,7 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
         if (xPos >= left && xPos <= right) {
           let color;
           if (pData.dragged) {
-            color = 'red';
+            color = 'red'; // 選択されたら赤色に
           } else {
             color = pData.initialColor; // App.jsで計算済みの初期色を使用
           }
@@ -85,7 +85,9 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
             displayX: xScale(xPos), // SVG上のX座標
             displayY: yPos,         // SVG上のY座標
             originalX: xPos,        // 元のデータ空間でのX座標
-            fill: color
+            fill: color,
+            stroke: 'none', // 枠線なし
+            strokeWidth: 0    // 枠線なし
           });
         }
       }
@@ -123,7 +125,9 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
       .attr("cx", d => d.displayX)
       .attr("cy", d => d.displayY)
       .attr("r", pointRadius)
-      .style("fill", d => d.fill);
+      .style("fill", d => d.fill)
+      .style("stroke", d => d.stroke)
+      .style("stroke-width", d => d.strokeWidth);
 
   }, [pointsData, timeIndex, left, right, colorPalette, iteration, isSelecting, selectionRectPixels]); // 依存配列を更新
 

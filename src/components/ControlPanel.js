@@ -23,7 +23,7 @@ function ControlPanel({
 
   // App.jsからのpropsが変更されたら入力フィールドの値を更新
   useEffect(() => {
-    if (functionInputRef.current) functionInputRef.current.value = "x * 0.5 * (1 - x)"; // 初期関数文字列
+    if (functionInputRef.current) functionInputRef.current.value = "3.839*x*(1-x)"; // 初期関数文字列を変更
   }, []); // マウント時に一度だけ設定
   useEffect(() => {
     if (nPointsInputRef.current) nPointsInputRef.current.value = String(N_points);
@@ -78,7 +78,7 @@ function ControlPanel({
         <textarea
           id="function_input"
           ref={functionInputRef}
-          defaultValue={"3.839*x  * (1 - x)"} // 初期値をdefaultValueで設定
+          defaultValue={"3.839*x*(1-x)"} // 初期値をdefaultValueで設定 (スペースを削除)
           rows={3}
           style={{ width: '95%', fontFamily: 'monospace', fontSize: '14px', padding: '5px' }}
         />

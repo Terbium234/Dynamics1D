@@ -14,7 +14,14 @@ function App() {
   const [right, setRight] = useState(1); // rightをstateで管理
   const [pointsData, setPointsData] = useState([]); // N個の点の時系列データを管理
   const [parsedFunction, setParsedFunction] = useState(null); // パースされた関数を保持
-  const [colorPalette, setColorPalette] = useState([d3.interpolate('lawngreen', 'gold')]); // カラーパレットをAppで管理
+  // 明るい水色 -> ライムグリーン -> 黄色 -> 明るいオレンジ のグラデーション
+  const [colorPalette, setColorPalette] = useState([
+    d3.scaleLinear()
+      .domain([0, 0.33, 0.66, 1]) // グラデーションの変化点を4つに分割
+      .range(["rgba(135, 206, 250, 0.7)", "rgba(50, 205, 50, 0.7)", "rgba(255, 255, 0, 0.7)", "rgba(255, 165, 0, 0.7)"]) // 各変化点の色を指定
+      .interpolate(d3.interpolateRgb) // 色空間の補間方法
+  ]);
+
 
 
   const handleAddPlot = () => {
@@ -64,12 +71,15 @@ function App() {
 
   }, [N_points,left,right,parsedFunction, colorPalette]); // colorPaletteも依存配列に追加
 
-  // left, right が変更されたときにデュオトーンの補間関数を生成
+  // left, right が変更されたときにカラーパレットを更新 (現在は固定のカスタムスケールなので、このuseEffectは不要になるか、別のロジックに変更可能)
   useEffect(() => {
     if (typeof left === 'number' && typeof right === 'number') {
-      const color1 = 'lawngreen';
-      const color2 = 'gold';
-      setColorPalette([d3.interpolate(color1, color2)]);
+      // 必要に応じて、leftやrightの値に基づいてdomainやrangeを動的に変更するロジックをここに追加できます。
+      // 今回は固定のカスタムスケールを使用するため、現状のままでも動作しますが、
+      // Appの初期化時に一度だけ設定したい場合は、このuseEffectは削除しても構いません。
+      // setColorPalette([d3.interpolateViridis]); // Viridisに戻す場合の例
+      // ここでは、初期値と同じカスタムスケールを再設定する形になっています。
+      // より動的にしたい場合は、この部分のロジックを調整してください。
     }
   }, [left, right]);
 

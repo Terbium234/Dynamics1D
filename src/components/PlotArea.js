@@ -108,9 +108,10 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
         if (point.positions && point.positions.length > 0 && point.positions[0]?.time === 0) {
           const xPos = point.positions[0].x;
           let color;
-          // point.dragged が true なら赤、そうでなければグラデーション
+          // point.dragged が true ならシアン、そうでなければグラデーション
           if (point.dragged) {
-            color = 'red';
+            color = 'red'; // 選択されたら赤色に
+            // 枠線はなしにするため、borderColor と borderWidth の設定は不要
           } else {
             if (range === 0) {
               // 範囲がゼロの場合は中間色を使用
@@ -124,7 +125,7 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
               if (d3.color(color)) color = d3.color(color).copy({opacity: 0.7}).toString();
             }
           }
-          result.push({ id: point.id, x: xPos, color: color }); // `dragged` プロパティは `pointsData` から直接参照される
+          result.push({ id: point.id, x: xPos, color: color, borderColor: 'transparent', borderWidth: 0 }); // 枠線なしを明示
         }
       });
     }
@@ -145,15 +146,18 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
         y: scatterY,
       }));
       const scatterColors = initialPointsForDisplay.map(point => point.color);
+      const scatterBorderColors = initialPointsForDisplay.map(point => point.borderColor);
+      const scatterBorderWidths = initialPointsForDisplay.map(point => point.borderWidth);
 
       setScatterPlotData({ // 散布図データ専用のstateを更新
         type: 'scatter',
         label: 'Initial Points',
         data: scatterData,
         backgroundColor: scatterColors, // initialPointsForDisplay から取得した色を適用
-        pointRadius: 3, // 少し大きくして透明度の効果を見やすくする (お好みで調整)
+        pointBorderColor: scatterBorderColors, // 点ごとの枠線の色
+        pointBorderWidth: scatterBorderWidths, // 点ごとの枠線の太さ
+        pointRadius: 3,
         pointHoverRadius: 4.5,
-        pointBorderWidth: 0, // 点の輪郭を消す
         showLine: false,
       });
     } else {
