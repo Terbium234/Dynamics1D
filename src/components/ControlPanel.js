@@ -74,11 +74,11 @@ function ControlPanel({
         <button onClick={onAddPlot} >次の反復を表示</button>
       </div>
       <div style={{ marginBottom: '10px' }}>
-        <label htmlFor="function_input" style={{ display: 'block', marginBottom: '5px' }}>{'数式 F(x): (例: x * 0.5 * (1 - x) または sin(x) )'}</label>
+        <label htmlFor="function_input" style={{ display: 'block', marginBottom: '5px' }}>{'数式 F(x): (例: 3.839x * (1 - x) または sin(x) )'}</label>
         <textarea
           id="function_input"
           ref={functionInputRef}
-          defaultValue={"x * 0.5 * (1 - x)"} // 初期値をdefaultValueで設定
+          defaultValue={"3.839*x  * (1 - x)"} // 初期値をdefaultValueで設定
           rows={3}
           style={{ width: '95%', fontFamily: 'monospace', fontSize: '14px', padding: '5px' }}
         />

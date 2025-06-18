@@ -1,8 +1,7 @@
 // client/src/components/B_Container.js
 import React, { useRef, useEffect } from 'react';
-import B_i_Plot from './B_i_Plot'; // B_i_Plotのインポートを有効化
-
-function B_Container({ plotCount }) { 
+import BiPlot from './BiPlot'; // インポートパスを './BiPlot' に（ファイル名変更後）
+function BContainer({ plotCount, pointsData, left, right, colorPalette, setPointsData }) { // setPointsData を追加
   const lastPlotRef = useRef(null); // 最後に追加されたプロットへの参照
 
   const plots = [];
@@ -11,10 +10,15 @@ function B_Container({ plotCount }) {
     // 最後に追加された要素にrefを渡す
     const isLastPlot = i === plotCount - 1;
     plots.push(
-      <B_i_Plot 
+      <BiPlot  // JSXタグを BiPlot に変更
         key={i} 
-        iteration={i + 1} 
+        iteration={i + 1} // iteration は 1-indexed (time は 0-indexed なので注意)
         ref={isLastPlot ? lastPlotRef : null} 
+        pointsData={pointsData}
+        left={left}
+        right={right}
+        colorPalette={colorPalette}
+        onSelectionChange={setPointsData} // BiPlotからの変更をAppのstateに反映
       />
     );
   }
@@ -26,10 +30,10 @@ function B_Container({ plotCount }) {
   }, [plotCount]); // plotCountが変更されるたびに実行 (新しいプロットが追加されたとき)
 
   return (
-    // B_Container の枠組みスタイル
-    <div style={{ 
-        padding: '10px', 
-        border: '2px solid red', 
+    // BContainer の枠組みスタイル
+    <div style={{
+        padding: '10px',
+        border: '2px solid red',
         backgroundColor: '#ffe0e0',
         // flexGrow: 1, // 固定の高さを設定するため削除
         height: '600px', // B_Containerの高さを600pxに固定（この値は調整可能です）
@@ -48,4 +52,4 @@ function B_Container({ plotCount }) {
   );
 }
 
-export default B_Container;
+export default BContainer;

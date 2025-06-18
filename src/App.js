@@ -1,10 +1,11 @@
 // client/src/App.js
 import React,{useState ,useEffect} from 'react';
 import Header from './components/Header';
+import * as d3 from 'd3'; // d3をインポート
 import ControlPanel from './components/ControlPanel';
 import PlotArea from './components/PlotArea';
 import './App.css'; // 必要に応じてグローバルCSSをインポート
-import B_Container from './components/B_Container';
+import BContainer from './components/BContainer'; // ファイル名とコンポーネント名を BContainer に変更
 
 function App() {
   const [plotCount, setPlotCount] = useState(0); // 表示するB_i_Plotの数を管理
@@ -13,6 +14,7 @@ function App() {
   const [right, setRight] = useState(1); // rightをstateで管理
   const [pointsData, setPointsData] = useState([]); // N個の点の時系列データを管理
   const [parsedFunction, setParsedFunction] = useState(null); // パースされた関数を保持
+  const [colorPalette, setColorPalette] = useState([d3.interpolate('lawngreen', 'gold')]); // カラーパレットをAppで管理
 
 
   const handleAddPlot = () => {
@@ -32,12 +34,27 @@ function App() {
 
     // 条件2: 点の初期位置を再計算
     const step = (right - left) / (N_points > 1 ? N_points -1 : 1);
+    const interpolator = colorPalette[0]; // App.jsで管理しているカラーパレットを使用
+    const range = right - left;
+
     const initialPoints = Array.from({ length: N_points }, (_, i) => {
       const initialX = N_points === 1 ? left + (right - left) / 2 : left + i * step;
+      let color;
+      if (range === 0) {
+        color = interpolator(0.5);
+      } else {
+        const relativePos = Math.max(0, Math.min(1, (initialX - left) / range));
+        color = interpolator(relativePos);
+      }
+      if (d3.color(color)) {
+        color = d3.color(color).copy({opacity: 0.7}).toString();
+      }
+
       return {
         id: `point-${i}`,
         positions: [{ time: 0, x: initialX }], // 時刻0の初期位置を登録
         dragged: false, // 初期状態ではドラッグされていない
+        initialColor: color, // 初期位置のグラデーション色を保持
       };
     });
     setPointsData(initialPoints); // 再計算された初期位置で点のデータを更新
@@ -45,11 +62,17 @@ function App() {
     // 条件3: B_i_Plotの数をゼロに戻す
     setPlotCount(0); // plotCountを0にリセットし、時刻0のデータは表示準備完了状態とする
 
-  }, [N_points,left,right,parsedFunction]);
+  }, [N_points,left,right,parsedFunction, colorPalette]); // colorPaletteも依存配列に追加
 
+  // left, right が変更されたときにデュオトーンの補間関数を生成
   useEffect(() => {
-    
-  },[])
+    if (typeof left === 'number' && typeof right === 'number') {
+      const color1 = 'lawngreen';
+      const color2 = 'gold';
+      setColorPalette([d3.interpolate(color1, color2)]);
+    }
+  }, [left, right]);
+
 
   // plotCountが変更されたとき（新しい反復が追加されたとき）に、
   // 各点の新しい位置情報を生成して追加する
@@ -94,6 +117,7 @@ function App() {
             parsedFunction={parsedFunction}
             left={left}
             right={right}
+            colorPalette={colorPalette} // AppからPlotAreaへカラーパレットを渡す
           />
           <ControlPanel
             onAddPlot={handleAddPlot}
@@ -108,9 +132,13 @@ function App() {
         </div>
         {/* 右側のセクション：B_Container */}
         <div className="right-section">
-          <B_Container
+          <BContainer
             plotCount={plotCount}
             pointsData={pointsData} // 点のデータをB_Containerに渡す (時刻情報はplotCountやpositions内のtimeで判断)
+            left={left} // BContainer経由でBiPlotへ渡す
+            right={right} // BContainer経由でBiPlotへ渡す
+            colorPalette={colorPalette} // BContainer経由でBiPlotへ渡す
+            setPointsData={setPointsData} // BiPlotでの選択結果をAppのstateに反映させるため
           />
         </div>
       </div>

@@ -1,6 +1,5 @@
 // client/src/components/PlotArea.js
 import React, { useEffect, useState, useMemo, useRef } from 'react'; // useMemo, useRef をインポート
-import { format } from 'mathjs'; // math.jsのformat関数をインポート
 import { Line } from 'react-chartjs-2';
 import * as d3 from 'd3'; // ← ここでD3.jsライブラリ全体を 'd3' という名前でインポートしています
 
@@ -26,18 +25,13 @@ ChartJS.register(
   Legend
 );
 
-function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_points }) { // N_pointsも受け取る, setPointsData を追加
-  // 表示する点のインデックス (0, 1, 2)
-  const pointIndicesToShow = [0, 1, 2];
-  const pointsToDisplay = pointsData.filter((_, index) => pointIndicesToShow.includes(index));
+function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_points, colorPalette }) { // colorPalette を props で受け取る
   const SCATTER_PLOT_Y_OFFSET = 0.1; // f(x)の最小値からのオフセット量の基準
   const MIN_SCATTER_Y_OFFSET_VALUE = 0.2; // 散布図のYオフセットの最小絶対値
 
   const [fxData, setFxData] = useState(null);
   // 散布図のプロットデータ
   const [scatterPlotData, setScatterPlotData] = useState(null);
-  // カラーパレット
-  const [colorPalette, setColorPalette] = useState([]);
 
   // 範囲選択のための状態変数
   const [isSelecting, setIsSelecting] = useState(false);
@@ -58,35 +52,35 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
       const step = numberOfSamplePoints > 1 ? (domainMax - domainMin) / (numberOfSamplePoints - 1) : 0;
 
 
-      const labels = [];
-      const dataPoints = [];
+      // const labels = []; // {x,y}形式のため不要に
+      const dataObjects = []; // {x,y}オブジェクトの配列に変更
       // f(x)のグラフの点に関するスタイルは、データセットオブジェクト内で直接指定するため、これらの配列は不要になります。
       // const pointBackgroundColors = [];
       // const pointRadii = [];
 
       for (let i = 0; i < numberOfSamplePoints; i++) {
-        const x = domainMin + i * step;
-        labels.push(x.toFixed(3)); // X軸のラベル
+        const currentX = domainMin + i * step;
+        // labels.push(currentX.toFixed(3)); 
         try {
-          const y = parsedFunction(x);
+          const y = parsedFunction(currentX);
           // InfinityやNaNはグラフ描画に適さないためnullにするかフィルタリング
           if (typeof y === 'number' && isFinite(y)) {
-            dataPoints.push(y);
+            dataObjects.push({ x: currentX, y: y });
           } else {
-            dataPoints.push(null); // 無効な値はグラフ上で途切れさせる
+            dataObjects.push({ x: currentX, y: null }); // yが無効でもxは保持
           }
         } catch (error) {
-          console.error(`Error evaluating function at x=${x}:`, error);
-          dataPoints.push(null);
+          console.error(`Error evaluating function at x=${currentX}:`, error);
+          dataObjects.push({ x: currentX, y: null });
         }
       }
 
       setFxData({
-        labels,
+        // labels, // {x,y}形式のためトップレベルのlabelsは不要
         datasets: [
           {
             label: 'f(x)',
-            data: dataPoints,
+            data: dataObjects, // {x,y}オブジェクトの配列を使用
             borderColor: 'rgb(0, 0, 0)', // 関数の線の色を黒に
             backgroundColor: 'rgba(0, 0, 0, 0.1)', // 関数の線の背景色（ほぼ透明な黒）
             tension: 0.1,
@@ -101,18 +95,6 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
       setFxData(null); // 関数がない場合はf(x)データをクリア
     }
   }, [parsedFunction, left, right]); // 依存配列は関数の定義域と関数自体
-
-  // left, right が変更されたときにデュオトーンの補間関数を生成
-  useEffect(() => {
-    if (typeof left === 'number' && typeof right === 'number') {
-      // グラデーションを黄緑から黄色へ変更
-      const color1 = 'lawngreen'; // 開始色 (黄緑)
-      const color2 = 'gold';      // 終了色 (黄色)
-      setColorPalette([d3.interpolate(color1, color2)]); // 配列に補間関数を格納
-    } else {
-      setColorPalette([d3.interpolate('lawngreen', 'gold')]); // デフォルトも同様に
-    }
-  }, [left, right]); // 依存配列は left と right のみ
 
   // pointsDataの時刻0の点をグラデーション表示
   const initialPointsForDisplay = useMemo(() => {
@@ -203,7 +185,7 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
     }
 
     return {
-      labels: fxData.labels,
+      // labels: fxData.labels, // x軸がlinearでデータにxが含まれる場合、これは不要
       datasets: finalDatasets,
     };
   }, [fxData, scatterPlotData]);
@@ -348,7 +330,10 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
       x: {
         type: 'linear',
         grid: {
-          color: 'rgba(0, 0, 0, 0.1)',
+          drawBorder: true, // 軸線を描画する (デフォルトはtrue)
+          color: 'rgba(0, 0, 0, 0.1)', // グリッド線の色 (薄い灰色)
+          borderColor: '#888', // X軸自体の線の色 (濃い灰色)
+          borderWidth: 1,    // X軸自体の線の太さ
         },
         ticks: {
           color: '#666',
@@ -357,7 +342,10 @@ function PlotArea({ pointsData, setPointsData, parsedFunction, left, right, N_po
       y: {
         beginAtZero: false,
         grid: {
-          color: 'rgba(0, 0, 0, 0.1)',
+          drawBorder: true, // 軸線を描画する (デフォルトはtrue)
+          color: 'rgba(0, 0, 0, 0.1)', // グリッド線の色 (薄い灰色)
+          borderColor: '#888', // Y軸自体の線の色 (濃い灰色)
+          borderWidth: 1,    // Y軸自体の線の太さ
         },
         ticks: {
           color: '#666',
