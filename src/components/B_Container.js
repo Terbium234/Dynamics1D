@@ -1,7 +1,8 @@
 // client/src/components/B_Container.js
 import React, { useRef, useEffect } from 'react';
-import BiPlot from './BiPlot'; // インポートパスを './BiPlot' に（ファイル名変更後）
-function BContainer({ plotCount, pointsData, left, right, colorPalette, setPointsData }) { // setPointsData を追加
+import B_i_Plot from './B_i_Plot'; // B_i_Plotのインポートを有効化
+
+function B_Container({ plotCount }) { 
   const lastPlotRef = useRef(null); // 最後に追加されたプロットへの参照
 
   const plots = [];
@@ -10,15 +11,10 @@ function BContainer({ plotCount, pointsData, left, right, colorPalette, setPoint
     // 最後に追加された要素にrefを渡す
     const isLastPlot = i === plotCount - 1;
     plots.push(
-      <BiPlot  // JSXタグを BiPlot に変更
+      <B_i_Plot 
         key={i} 
-        iteration={i + 1} // iteration は 1-indexed (time は 0-indexed なので注意)
+        iteration={i + 1} 
         ref={isLastPlot ? lastPlotRef : null} 
-        pointsData={pointsData}
-        left={left}
-        right={right}
-        colorPalette={colorPalette}
-        onSelectionChange={setPointsData} // BiPlotからの変更をAppのstateに反映
       />
     );
   }
@@ -30,10 +26,10 @@ function BContainer({ plotCount, pointsData, left, right, colorPalette, setPoint
   }, [plotCount]); // plotCountが変更されるたびに実行 (新しいプロットが追加されたとき)
 
   return (
-    // BContainer の枠組みスタイル
-    <div style={{
-        padding: '10px',
-        border: '2px solid red',
+    // B_Container の枠組みスタイル
+    <div style={{ 
+        padding: '10px', 
+        border: '2px solid red', 
         backgroundColor: '#ffe0e0',
         // flexGrow: 1, // 固定の高さを設定するため削除
         height: '600px', // B_Containerの高さを600pxに固定（この値は調整可能です）
@@ -42,7 +38,7 @@ function BContainer({ plotCount, pointsData, left, right, colorPalette, setPoint
         // minHeight: 0 // 固定の高さを設定するため不要
         // display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' // リスト表示のためflex関連のスタイルを調整または削除
       }}>
-      <h3>点の分布  </h3>
+      <h3>点の分布 (B) - 雛形</h3>
       {plotCount === 0 ? (
         <p>「次の反復を表示」ボタンを押してプロットを追加してください。</p>
       ) : (
@@ -52,4 +48,4 @@ function BContainer({ plotCount, pointsData, left, right, colorPalette, setPoint
   );
 }
 
-export default BContainer;
+export default B_Container;

@@ -10,6 +10,9 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
   const pointRadius = 2.5;
   const yLevelStep = 10; // 折り返し時のY方向のステップ量を大きくする
 
+  // X軸の描画スペースを確保するためのマージン
+  const margin = { top: 5, right: 15, bottom: 25, left: 15 };
+
   // 範囲選択のための状態変数
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRectPixels, setSelectionRectPixels] = useState({ x1: null, y1: null, x2: null, y2: null });
@@ -24,19 +27,12 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
     const svg = d3.select(svgElement);
     svg.selectAll("*").remove(); // 描画前に既存の要素をクリア
 
-    const width = svgElement.clientWidth || 300; // 親要素の幅を取得、なければデフォルト
+    // マージンを考慮した描画領域の幅
+    const width = (svgElement.clientWidth || 300) - margin.left - margin.right;
+    if (width <= 0) return; // 幅がなければ描画を中断
 
-    // 選択範囲描画用のグループ (他の要素より手前に来るように最後に追加も検討)
-    let selectionRectGroup = svg.select("g.selection-rect-group");
-    if (selectionRectGroup.empty()) {
-      selectionRectGroup = svg.append("g").attr("class", "selection-rect-group");
-    }
-    selectionRectGroup.selectAll("*").remove(); // 既存の選択矩形をクリア
-
-    // 選択矩形の描画ロジックは、SVGの高さが決定した後に移動済みのため、この古いコメントブロックは削除
-
+    // X座標のスケールを定義
     const xScale = d3.scaleLinear().domain([left, right]).range([0, width]);
-    // const interpolator = colorPalette[0]; // initialColor を使うため不要に
 
     let currentYLevel = pointRadius + 2; // 最初の点のY座標の基準
     let lastX = null;
@@ -97,20 +93,39 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
     currentPointsToDraw.sort((a,b) => a.originalX - b.originalX);
     setDrawnPoints(currentPointsToDraw); // 描画した点の情報をstateに保存 (マウスイベントで使用)
 
-    // 描画する点のY座標の最大値に基づいてSVGの高さを決定
-    let maxYPos = pointRadius + 2; // 最小の高さ（最初の点のY座標の基準）
+    // 点が描画されるエリアの高さを計算
+    let plotAreaHeight;
     if (currentPointsToDraw.length > 0) {
-      maxYPos = d3.max(currentPointsToDraw, d => d.displayY) + pointRadius + 2; // 最大Y座標 + 半径 + 余白
+      const maxYPos = d3.max(currentPointsToDraw, d => d.displayY) + pointRadius + 2; // 最大Y座標 + 半径 + 余白
+      plotAreaHeight = Math.max(20, maxYPos); // 最低でも20pxの高さは確保
+    } else {
+      plotAreaHeight = 20; // 点がない場合も最低限の高さを確保
     }
-    const dynamicPlotHeight = Math.max(20, maxYPos); // 最低でも20pxの高さは確保
+    // SVG全体の高さ = プロットエリアの高さ + 上下マージン
+    const dynamicPlotHeight = plotAreaHeight + margin.top + margin.bottom;
 
     svg.attr('height', dynamicPlotHeight)
        .style('background-color', '#f0f0ff')
        .style('border', '1px dashed #9999ff');
 
-    // SVGの高さが決定したので、選択矩形を再描画 (もし選択中なら)
+    // 描画用の <g> 要素 (plotGroup) を作成し、マージン分移動
+    const plotGroup = svg.append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    // X軸ジェネレーターを作成
+    const xAxis = d3.axisBottom(xScale).ticks(5).tickSizeOuter(0);
+
+    // X軸を描画
+    plotGroup.append("g")
+      .attr("class", "x-axis")
+      .attr("transform", `translate(0, ${plotAreaHeight})`) // プロットエリアの下端に配置
+      .call(xAxis)
+      .selectAll("text")
+        .style("font-size", "10px"); // メモリの文字サイズを調整
+
+    // 選択矩形を描画 (もし選択中なら)
     if (isSelecting && selectionRectPixels.x1 !== null) {
-      selectionRectGroup.append("rect")
+      plotGroup.append("rect")
         .attr("x", Math.min(selectionRectPixels.x1, selectionRectPixels.x2))
         .attr("y", Math.min(selectionRectPixels.y1, selectionRectPixels.y2))
         .attr("width", Math.abs(selectionRectPixels.x2 - selectionRectPixels.x1))
@@ -118,7 +133,8 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
         .attr("fill", "rgba(0, 100, 255, 0.3)");
     }
 
-    svg.selectAll("circle")
+    // 点を plotGroup 内に描画
+    plotGroup.selectAll("circle")
       .data(currentPointsToDraw)
       .enter()
       .append("circle")
@@ -128,15 +144,16 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
       .style("fill", d => d.fill)
       .style("stroke", d => d.stroke)
       .style("stroke-width", d => d.strokeWidth);
-
-  }, [pointsData, timeIndex, left, right, colorPalette, iteration, isSelecting, selectionRectPixels]); // 依存配列を更新
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pointsData, timeIndex, left, right, colorPalette, iteration, isSelecting, selectionRectPixels]);
 
   const handleMouseDown = (event) => {
     const svgElement = svgRef.current;
     if (!svgElement) return;
     const rect = svgElement.getBoundingClientRect();
-    const x = event.clientX - rect.left; // SVGローカルX座標
-    const y = event.clientY - rect.top;  // SVGローカルY座標
+    // SVGローカル座標からマージンを引いて、plotGroup内の座標に変換
+    const x = event.clientX - rect.left - margin.left;
+    const y = event.clientY - rect.top - margin.top;
 
     setIsSelecting(true);
     setSelectionRectPixels({ x1: x, y1: y, x2: x, y2: y }); // y1, y2 もマウス位置で初期化
@@ -147,8 +164,8 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
     const svgElement = svgRef.current;
     if (!svgElement) return;
     const rect = svgElement.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    const x = event.clientX - rect.left - margin.left;
+    const y = event.clientY - rect.top - margin.top;
 
     setSelectionRectPixels(prev => ({ ...prev, x2: x, y2: y })); // y2 も更新
   };
@@ -164,13 +181,14 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
       return;
     }
 
-    const selectionStartPixelX = Math.min(pixelX1, pixelX2); // 変数名を X を含むものに統一
-    const selectionEndPixelX = Math.max(pixelX1, pixelX2);   // 変数名を X を含むものに統一
+    // 選択範囲の座標 (plotGroupローカル座標系)
+    const selectionStartPixelX = Math.min(pixelX1, pixelX2);
+    const selectionEndPixelX = Math.max(pixelX1, pixelX2);
     const selectionStartPixelY = Math.min(pixelY1, pixelY2);
     const selectionEndPixelY = Math.max(pixelY1, pixelY2);
 
     const selectedIds = new Set();
-    drawnPoints.forEach(point => {
+    drawnPoints.forEach(point => { // drawnPointsの座標もplotGroupローカル
       // X座標とY座標の両方が選択範囲内にあるかチェック
       if (point.displayX >= selectionStartPixelX && point.displayX <= selectionEndPixelX &&
           point.displayY >= selectionStartPixelY && point.displayY <= selectionEndPixelY) {
@@ -205,7 +223,7 @@ const BiPlot = React.forwardRef(({ iteration, pointsData, left, right, colorPale
       onMouseLeave={handleMouseUpOrLeave} // SVG外に出た場合も選択終了
     >
       <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#333' }}>
-        点の分布 (B) - 時刻: {timeIndex} (反復: {iteration})
+        点の分布 (B) - 反復: {timeIndex}
       </p>
       <svg ref={svgRef} style={{ width: '100%' }}></svg>
     </div>

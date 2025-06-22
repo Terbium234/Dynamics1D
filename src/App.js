@@ -32,7 +32,7 @@ function App() {
   const [pointsData, setPointsData] = useState([]); // N個の点の時系列データを管理
   const [parsedFunction, setParsedFunction] = useState(null); // パースされた関数を保持
   // 明るい水色 -> ライムグリーン -> 黄色 -> 明るいオレンジ のグラデーション
-  const [colorPalette, setColorPalette] = useState([
+  const [colorPalette] = useState([
     d3.scaleLinear()
       .domain([0, 0.33, 0.66, 1]) // グラデーションの変化点を4つに分割
       .range(["rgba(135, 206, 250, 0.7)", "rgba(50, 205, 50, 0.7)", "rgba(255, 255, 0, 0.7)", "rgba(255, 165, 0, 0.7)"]) // 各変化点の色を指定
